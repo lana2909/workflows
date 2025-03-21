@@ -1,14 +1,24 @@
-name: "Security Testing with CodeQL & OWASP ZAP"
+name: "CI/CD Security Testing with CodeQL & Docker"
 
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: '0 12 * * *'  # Jalankan otomatis setiap hari jam 12 siang
+  pull_request:
+    branches: [main]
 
 jobs:
+  # 1️⃣ Static Analysis (SAST) dengan CodeQL
   codeql-analysis:
+    name: "Static Code Analysis (CodeQL)"
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -16,14 +26,22 @@ jobs:
       - name: Setup CodeQL
         uses: github/codeql-action/init@v2
         with:
-          languages: javascript
+          languages: ${{ matrix.language }}
 
       - name: Run CodeQL Analysis
         uses: github/codeql-action/analyze@v2
 
+  # 2️⃣ Dynamic Security Test (DAST) dengan OWASP ZAP
   zap-scan:
+    name: "Dynamic Security Test (OWASP ZAP)"
     runs-on: ubuntu-latest
+    needs: codeql-analysis
     steps:
-      - name: Scan DVWA dengan OWASP ZAP
+      - name: Start DVWA with Docker
         run: |
-          docker run -t owasp/zap2docker-stable zap-baseline.py -t http://10.10.1.3:8080
+          docker run -d --name dvwa -p 8080:80 vulnerables/web-dvwa
+          sleep 15  # Tunggu agar DVWA siap
+
+      - name: OWASP ZAP Security Scan
+        run: |
+          docker run -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080
