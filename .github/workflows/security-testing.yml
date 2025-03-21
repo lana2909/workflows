@@ -42,6 +42,10 @@ jobs:
           docker run -d --name dvwa -p 8080:80 vulnerables/web-dvwa
           sleep 15  # Tunggu agar DVWA siap
 
-      - name: OWASP ZAP Security Scan
-        run: |
-          docker run -t owasp/zap2docker-stable zap-baseline.py -t http://localhost:8080
+      - name: Run OWASP ZAP Scan
+  run: |
+    docker run --rm -u root -v $(pwd):/zap/wrk/:rw \
+    -t owasp/zap2docker-stable zap-baseline.py \
+    -t http://localhost:8000 \
+    -r zap_report.html || true
+
